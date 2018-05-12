@@ -1,0 +1,8 @@
+name: news-parser
+dependencies:
+  - beautifulsoup4=4.6
+  - feedparser=5.2
+  - nodejs=8
+  - python=3.6
+  - requests=2.18
+  - sqlite=3.23
