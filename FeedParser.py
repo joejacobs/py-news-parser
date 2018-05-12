@@ -10,9 +10,10 @@ import pprint
 
 
 class FeedParser(object):
-    def __init__(self, db, article_parser):
+    def __init__(self, db, article_parser, user_agent = None):
         self._article_parser = article_parser
         self._db = db
+        self._user_agent = user_agent
 
     def parse_feed(self, feed_url):
         assert self._db is not None
@@ -21,7 +22,7 @@ class FeedParser(object):
         pp = pprint.PrettyPrinter(indent=4)
 
         # get raw feed
-        res = HTTPRequest(tries=3, delay=2500).get(feed_url)
+        res = HTTPRequest(2500, 3, self._user_agent).get(feed_url)
 
         if res.status_code != 200:
             print(f"\t{res.status_code}")
@@ -62,6 +63,8 @@ def argparse_init():
 
     parser.add_argument("-db", "--db-filename", default="articles.db",
                         type=str, help="Database file path")
+    parser.add_argument("-ua", "--user-agent", default="(none)", type=str,
+                        help="A custom user agent to use for HTTP requests")
     parser.add_argument("-add", "--add-feeds", default="(none)", type=str,
                         help="Parse a JSON file and add RSS feeds to the db")
     parser.add_argument("-parser", "--article-parser", default="readability",
@@ -87,6 +90,9 @@ def argparse_init():
         else:
             raise RuntimeError("Unrecognised article parser")
 
+    if args.user_agent == "(none)":
+        args.user_agent = None
+
     return args
 
 
@@ -100,7 +106,7 @@ def parse_all_feeds(args):
         from ReadabilityParser import ArticleParser
 
     article_parser = ArticleParser(args)
-    feed_parser = FeedParser(db, article_parser)
+    feed_parser = FeedParser(db, article_parser, args.user_agent)
 
     for url in db.get_all_feed_urls():
         print(f"Parsing {url}")

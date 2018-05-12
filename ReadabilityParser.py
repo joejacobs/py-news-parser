@@ -17,6 +17,7 @@ class ArticleParser(object):
     def __init__(self, args):
         self._log_file = args.readability_log_file
         self._port = args.readability_port
+        self._user_agent = args.user_agent
 
         self._install_server()
         self._launch_server()
@@ -51,7 +52,7 @@ class ArticleParser(object):
     def parse(self, url):
         encoded_url = urllib.parse.quote_plus(url)
         api_url = f"http://localhost:{self._port}/article/{encoded_url}"
-        return HTTPRequest(tries=3, delay=2500).get(api_url)
+        return HTTPRequest(2500, 3, self._user_agent).get(api_url)
 
     # keep reading the log file until the server has finished launching
     def _wait_for_launch(self):

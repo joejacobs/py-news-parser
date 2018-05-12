@@ -7,13 +7,19 @@ import time
 
 
 class HTTPRequest(object):
-    def __init__(self, delay=0, tries=3):
+    def __init__(self, delay=0, tries=3, user_agent=None):
         self._delay = delay
         self._tries = tries
+        self._user_agent = user_agent
 
     # TODO: differentiate connection failure from gzip error
     def get(self, url, additional_headers=None):
         remaining_tries = self._tries
+
+        if additional_headers is None:
+            additional_headers = {}
+
+        additional_headers["User-Agent"] = self._user_agent
 
         while remaining_tries > 0:
             try:
