@@ -17,28 +17,49 @@ class Database(object):
         self._conn.close()
 
     # check if an article is already in the database
-    def check_if_article_exists(self, url):
-        c = self._conn.cursor()
-        c.execute("SELECT * FROM articles WHERE url=?", (url,))
-        return c.fetchone() is not None
+    def check_if_article_exists(self, article_url, ignore_protocol=False):
+        return self._check_if_item_exists("articles", article_url,
+                                          ignore_protocol)
 
     # check if a feed is already in the database
-    def _check_if_feed_exists(self, url, ignore_protocol=False):
+    def check_if_feed_exists(self, feed_url, ignore_protocol=False):
+        return self._check_if_item_exists("feeds", feed_url, ignore_protocol)
+
+    # check if an item exists based on url
+    def _check_if_item_exists(self, table, url, ignore_protocol):
         c = self._conn.cursor()
 
         if ignore_protocol:
             url = "%{}".format(url[url.find("://"):])
 
-        c.execute("SELECT * FROM feeds WHERE url LIKE ?", (url,))
+        c.execute(f"SELECT * FROM {table} WHERE url LIKE ?", (url,))
         return c.fetchone() is not None
+
+    # check if parsed article is already in the database
+    def check_if_parsed_article_exists(self, article_url, parser):
+        c = self._conn.cursor()
+        c.execute("SELECT * FROM parsed_articles WHERE article=? AND parser=?",
+                  (article_url, parser))
+        return c.fetchone() is not None
+
+    # check if a website is already in the database
+    def check_if_website_exists(self, website_url, ignore_protocol=False):
+        return self._check_if_item_exists("websites", website_url,
+                                          ignore_protocol)
 
     # check if tables exist
     def _check_if_tables_exist(self):
+        query0 = "SELECT name FROM sqlite_master WHERE type='table' AND name=?"
         query1 = "SELECT name FROM sqlite_master WHERE type='table' AND name=?"
         query2 = "SELECT name FROM sqlite_master WHERE type='table' AND name=?"
         query3 = "SELECT name FROM sqlite_master WHERE type='table' AND name=?"
 
         c = self._conn.cursor()
+        c.execute(query0, ("websites",))
+
+        if c.fetchone() is None:
+            return False
+
         c.execute(query1, ("feeds",))
 
         if c.fetchone() is None:
@@ -54,20 +75,26 @@ class Database(object):
 
     # create tables if they don't exist
     def _create_tables(self):
-        query1 = ("CREATE TABLE IF NOT EXISTS feeds ("
+        query0 = ("CREATE TABLE IF NOT EXISTS websites ("
                   "url TEXT PRIMARY KEY NOT NULL, name TEXT NOT NULL, "
                   "language CHAR(2) NOT NULL, country CHAR(2) NOT NULL);")
+        query1 = ("CREATE TABLE IF NOT EXISTS feeds ("
+                  "url TEXT PRIMARY KEY NOT NULL, name TEXT NOT NULL, "
+                  "website TEXT NOT NULL, "
+                  "FOREIGN KEY(website) REFERENCES websites(url));")
         query2 = ("CREATE TABLE IF NOT EXISTS articles ("
-                  "url TEXT PRIMARY KEY NOT NULL, feed_url TEXT NOT NULL, "
+                  "url TEXT PRIMARY KEY NOT NULL, "
                   "time TIMESTAMP DEFAULT CURRENT_TIMESTAMP, "
-                  "content TEXT NOT NULL, "
-                  "FOREIGN KEY(feed_url) REFERENCES feeds(url));")
+                  "content TEXT NOT NULL, feed TEXT, website TEXT NOT NULL, "
+                  "FOREIGN KEY(feed) REFERENCES feeds(url), "
+                  "FOREIGN KEY(website) REFERENCES websites(url);")
         query3 = ("CREATE TABLE IF NOT EXISTS parsed_articles ("
-                  "article_url TEXT NOT NULL, parser TEXT NOT NULL, "
-                  "content TEXT NOT NULL, PRIMARY KEY(article_url, parser), "
-                  "FOREIGN KEY(article_url) REFERENCES articles(url));")
+                  "article TEXT NOT NULL, parser TEXT NOT NULL, "
+                  "content TEXT NOT NULL, PRIMARY KEY(article, parser), "
+                  "FOREIGN KEY(article) REFERENCES articles(url));")
 
         c = self._conn.cursor()
+        c.execute(query0)
         c.execute(query1)
         c.execute(query2)
         c.execute(query3)
@@ -77,71 +104,201 @@ class Database(object):
     def get_all_feed_urls(self):
         c = self._conn.cursor()
         c.execute("SELECT url FROM feeds")
-        all_feed_urls = c.fetchall()
-        return [x[0] for x in all_feed_urls]
+        all_feeds = c.fetchall()
+        return [x[0] for x in all_feeds]
 
     # get a list of all website urls
     def get_all_website_urls(self):
         c = self._conn.cursor()
         c.execute("SELECT url FROM websites")
-        all_website_urls = c.fetchall()
-        return [x[0] for x in all_website_urls]
+        all_websites = c.fetchall()
+        return [x[0] for x in all_websites]
 
-    # insert an article into the database
-    def insert_article(self, url, feed_url, content):
+    # get the root website for a given feed
+    def get_website_for_feed(self, feed_url):
         c = self._conn.cursor()
-        c.execute("INSERT INTO articles (url, feed_url, content) "
-                  "VALUES (?, ?, ?)", (url, feed_url, content))
-        assert c.rowcount == 1
-        self._conn.commit()
+        c.execute("SELECT website FROM feeds WHERE url=?", (feed_url,))
+        return c.fetchone()[0]
 
-    # insert a new rss feed into the database, returns the number of affected
-    # rows
-    def insert_feed(self, url, name, language, country):
-        if not self._check_if_feed_exists(url, True):
+    # insert an article into the database, return the number of affected rows
+    def insert_article(self, article_url, feed_url, website_url, content):
+        if not self.check_if_article_exists(article_url, True):
             c = self._conn.cursor()
-            c.execute("INSERT INTO feeds (url, name, language, country) "
-                      "VALUES (?, ?, ?, ?)", (url, name, language, country))
+
+            if feed_url is None:
+                feed_url = ''
+
+            c.execute("INSERT INTO articles (url, feed, website, content) "
+                      "VALUES (?, ?, ?, ?)", (article_url, feed_url,
+                                              website_url, content))
             assert c.rowcount == 1
             self._conn.commit()
             return 1
 
         return 0
 
-    # insert or update rss feed details, returns the number of affected rows
-    def update_feed(self, url, name, language, country):
-        if self.insert_feed(url, name, language, country) == 1:
+    # insert an rss feed into the database, return the number of affected rows
+    def insert_feed(self, feed_url, website_url, name):
+        if not self.check_if_feed_exists(feed_url, True):
+            c = self._conn.cursor()
+            c.execute("INSERT INTO feeds (url, website, name) "
+                      "VALUES (?, ?, ?)", (feed_url, website_url, name))
+            assert c.rowcount == 1
+            self._conn.commit()
             return 1
 
-        # check if the feed protocol changed (e.g. http to https)
-        if self._check_if_feed_exists(url):
-            # no changes to protocol so just update feed details
-            c = self._conn.cursor()
-            c.execute("UPDATE feeds SET name=?, language=?, country=? "
-                      "WHERE url=?", (name, language, country, url))
-            rowcount = c.rowcount
-            self._conn.commit()
-            return rowcount
+        return 0
 
-        # the feed protocol has changed so we need to update the foreign key in
-        # the articles table as well
+    # insert parsed article into the database, return the number of affected
+    # rows
+    def insert_parsed_article(self, article_url, parser, content):
+        if not self.check_if_parsed_article_exists(article_url, parser):
+            c = self._conn.cursor()
+            c.execute("INSERT INTO parsed_articles (article, parser, content) "
+                      "VALUES (?, ?, ?)", (article_url, parser, content))
+            assert c.rowcount == 1
+            self._conn.commit()
+            return 1
+
+        return 0
+
+    # insert a website into the database, return the number of affected rows
+    def insert_website(self, website_url, name, language, country):
+        if not self.check_if_website_exists(website_url, True):
+            c = self._conn.cursor()
+            c.execute("INSERT INTO websites (url, name, language, country) "
+                      "VALUES (?, ?, ?, ?)", (website_url, name, language,
+                                              country))
+            assert c.rowcount == 1
+            self._conn.commit()
+            return 1
+
+        return 0
+
+    # insert or update an article
+    def update_article(self, article_url, feed_url, website_url, content):
+        if feed_url is None:
+            feed_url = ''
+
+        if self.insert_article(article_url, feed_url,
+                               website_url, content) == 1:
+            return 1
+
+        # check if the article protocol changed (e.g. http to https)
+        if self.check_if_article_exists(article_url):
+            # no changes to protocol so just update article details
+            c = self._conn.cursor()
+            c.execute("UPDATE articles SET feed=?, website=?, content=? "
+                      "WHERE url=?", (feed_url, website_url, content,
+                                      article_url))
+            assert c.rowcount == 1
+            self._conn.commit()
+            return 1
+
+        # the article protocol has changed so we need to update the foreign key
+        # in the parsed_articles table as well
         c = self._conn.cursor()
 
         # get old url
-        tmp_url = "%{}".format(url[url.find("://"):])
-        c.execute("SELECT url FROM feeds WHERE url LIKE ?", (tmp_url,))
+        tmp_url = "%{}".format(article_url[article_url.find("://"):])
+        c.execute("SELECT url FROM articles WHERE url LIKE ?", (tmp_url,))
         old_url = c.fetchone()[0]
 
-        # update feed details
-        c.execute("UPDATE feeds SET url=?, name=?, language=?, country=? "
-                  "WHERE url=?", (url, name, language, country, old_url))
+        # update article details
+        c.execute("UPDATE articles SET url=?, feed=?, website=?, content=? "
+                  "WHERE url=?", (article_url, feed_url, website_url, content,
+                                  old_url))
         assert c.rowcount == 1
         self._conn.commit()
 
-        # update foreign key
-        c.execute("UPDATE articles SET feed_url=? WHERE feed_url=?",
-                  (url, old_url))
+        # update foreign key in parsed_articles table
+        c.execute("UPDATE parsed_articles SET article=? WHERE article=?",
+                  (article_url, old_url))
         rowcount = 1 + c.rowcount
+        self._conn.commit()
+
+        return rowcount
+
+    # insert or update an rss feed
+    def update_feed(self, feed_url, website_url, name):
+        if self.insert_feed(feed_url, website_url, name) == 1:
+            return 1
+
+        # check if the feed protocol changed (e.g. http to https)
+        if not self.check_if_feed_exists(feed_url):
+            c = self._conn.cursor()
+
+            # get old url
+            tmp_url = "%{}".format(feed_url[feed_url.find("://"):])
+            c.execute("SELECT url FROM feeds WHERE url LIKE ?", (tmp_url,))
+            old_url = c.fetchone()[0]
+
+            # update feed details
+            c.execute("UPDATE feeds SET url=?, website=?, name=? "
+                      "WHERE url=?", (feed_url, website_url, name, old_url))
+            assert c.rowcount == 1
+            self._conn.commit()
+
+            # update foreign key
+            c.execute("UPDATE articles SET feed=? WHERE feed=?", (feed_url,
+                                                                  old_url))
+            rowcount = 1 + c.rowcount
+            self._conn.commit()
+
+            return rowcount
+
+    # insert of update a parsed article, returns the number of affected rows
+    def update_parsed_article(self, article_url, parser, content):
+        if self.insert_parsed_article(article_url, parser, content) == 1:
+            return 1
+
+        c.execute("UPDATE parsed_articles SET content=? WHERE article=? AND "
+                  "parser=?", (content, article_url, parser))
+        assert c.rowcount == 1
+        self._conn.commit()
+        return 1
+
+    # insert or update website details, returns the number of affected rows
+    def update_website(self, website_url, name, language, country):
+        if self.insert_website(website_url, name, language, country) == 1:
+            return 1
+
+        # check if the website protocol changed (e.g. http to https)
+        if self.check_if_website_exists(url):
+            # no changes to protocol so just update website details
+            c = self._conn.cursor()
+            c.execute("UPDATE websites SET name=?, language=?, country=? "
+                      "WHERE url=?", (name, language, country, website_url))
+            assert c.rowcount == 1
+            self._conn.commit()
+            return 1
+
+        # the website protocol has changed so we need to update the foreign key
+        # in the articles and feeds tables as well
+        c = self._conn.cursor()
+
+        # get old url
+        tmp_url = "%{}".format(website_url[website_url.find("://"):])
+        c.execute("SELECT url FROM websites WHERE url LIKE ?", (tmp_url,))
+        old_url = c.fetchone()[0]
+
+        # update website details
+        c.execute("UPDATE websites SET url=?, name=?, language=?, country=? "
+                  "WHERE url=?", (website_url, name, language, country,
+                                  old_url))
+        assert c.rowcount == 1
+        self._conn.commit()
+
+        # update foreign key in feeds table
+        c.execute("UPDATE feeds SET website=? WHERE website=?", (website_url,
+                                                                 old_url))
+        rowcount = 1 + c.rowcount
+        self._conn.commit()
+
+        # update foreign key in articles table
+        c.execute("UPDATE articles SET website=? WHERE website=?",
+                  (website_url, old_url))
+        rowcount += c.rowcount
         self._conn.commit()
 
         return rowcount
