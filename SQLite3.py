@@ -36,6 +36,7 @@ class Database(object):
     def _check_if_tables_exist(self):
         query1 = "SELECT name FROM sqlite_master WHERE type='table' AND name=?"
         query2 = "SELECT name FROM sqlite_master WHERE type='table' AND name=?"
+        query3 = "SELECT name FROM sqlite_master WHERE type='table' AND name=?"
 
         c = self._conn.cursor()
         c.execute(query1, ("feeds",))
@@ -44,6 +45,11 @@ class Database(object):
             return False
 
         c.execute(query2, ("articles",))
+
+        if c.fetchone() is None:
+            return False
+
+        c.execute(query3, ("parsed_articles",))
         return c.fetchone() is not None
 
     # create tables if they don't exist
@@ -54,13 +60,17 @@ class Database(object):
         query2 = ("CREATE TABLE IF NOT EXISTS articles ("
                   "url TEXT PRIMARY KEY NOT NULL, feed_url TEXT NOT NULL, "
                   "time TIMESTAMP DEFAULT CURRENT_TIMESTAMP, "
-                  "response_status INT NOT NULL, "
-                  "response_content TEXT NOT NULL, "
+                  "content TEXT NOT NULL, "
                   "FOREIGN KEY(feed_url) REFERENCES feeds(url));")
+        query3 = ("CREATE TABLE IF NOT EXISTS parsed_articles ("
+                  "article_url TEXT NOT NULL, parser TEXT NOT NULL, "
+                  "content TEXT NOT NULL, PRIMARY KEY(article_url, parser), "
+                  "FOREIGN KEY(article_url) REFERENCES articles(url));")
 
         c = self._conn.cursor()
         c.execute(query1)
         c.execute(query2)
+        c.execute(query3)
         self._conn.commit()
 
     # get a list of feed urls
@@ -78,12 +88,10 @@ class Database(object):
         return [x[0] for x in all_website_urls]
 
     # insert an article into the database
-    def insert_article(self, url, feed_url, response_status, response_content):
+    def insert_article(self, url, feed_url, content):
         c = self._conn.cursor()
-        c.execute("INSERT INTO articles (url, feed_url, response_status, "
-                  "response_content) VALUES (?, ?, ?, ?)", (url, feed_url,
-                                                            response_status,
-                                                            response_content))
+        c.execute("INSERT INTO articles (url, feed_url, content) "
+                  "VALUES (?, ?, ?)", (url, feed_url, content))
         assert c.rowcount == 1
         self._conn.commit()
 
@@ -92,7 +100,7 @@ class Database(object):
     def insert_feed(self, url, name, language, country):
         if not self._check_if_feed_exists(url, True):
             c = self._conn.cursor()
-            c.execute("INSERT INTO feeds (url, name, language, country)"
+            c.execute("INSERT INTO feeds (url, name, language, country) "
                       "VALUES (?, ?, ?, ?)", (url, name, language, country))
             assert c.rowcount == 1
             self._conn.commit()
