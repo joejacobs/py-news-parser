@@ -87,7 +87,7 @@ class Database(object):
                   "time TIMESTAMP DEFAULT CURRENT_TIMESTAMP, "
                   "content TEXT NOT NULL, feed TEXT, website TEXT NOT NULL, "
                   "FOREIGN KEY(feed) REFERENCES feeds(url), "
-                  "FOREIGN KEY(website) REFERENCES websites(url);")
+                  "FOREIGN KEY(website) REFERENCES websites(url));")
         query3 = ("CREATE TABLE IF NOT EXISTS parsed_articles ("
                   "article TEXT NOT NULL, parser TEXT NOT NULL, "
                   "content TEXT NOT NULL, PRIMARY KEY(article, parser), "
@@ -264,7 +264,7 @@ class Database(object):
             return 1
 
         # check if the website protocol changed (e.g. http to https)
-        if self.check_if_website_exists(url):
+        if self.check_if_website_exists(website_url):
             # no changes to protocol so just update website details
             c = self._conn.cursor()
             c.execute("UPDATE websites SET name=?, language=?, country=? "
