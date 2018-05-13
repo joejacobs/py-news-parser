@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-from Database import Database
 from HTTPRequest import HTTPRequest
+from SQLite3 import Database
 
 import argparse
 import feedparser as fp
