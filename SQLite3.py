@@ -121,16 +121,25 @@ class Database(object):
         return c.fetchone()[0]
 
     # insert an article into the database, return the number of affected rows
-    def insert_article(self, article_url, feed_url, website_url, content):
+    def insert_article(self, article_url, feed_url, website_url, content,
+                       time = None):
         if not self.check_if_article_exists(article_url, True):
             c = self._conn.cursor()
 
             if feed_url is None:
                 feed_url = ''
 
-            c.execute("INSERT INTO articles (url, feed, website, content) "
-                      "VALUES (?, ?, ?, ?)", (article_url, feed_url,
-                                              website_url, content))
+            if time is None:
+                c.execute("INSERT INTO articles (url, feed, website, content) "
+                          "VALUES (?, ?, ?, ?)", (article_url, feed_url,
+                                                  website_url, content))
+            else:
+                c.execute("INSERT INTO articles (url, feed, website, content, "
+                          "time) VALUES (?, ?, ?, ?, ?)", (article_url,
+                                                           feed_url,
+                                                           website_url,
+                                                           content, time))
+
             assert c.rowcount == 1
             self._conn.commit()
             return 1
