@@ -10,7 +10,7 @@ import pprint
 
 
 class FeedParser(object):
-    def __init__(self, db, user_agent = None):
+    def __init__(self, db, user_agent=None):
         self._db = db
         self._user_agent = user_agent
 
@@ -38,7 +38,9 @@ class FeedParser(object):
 
             # pass the article to the article parser and store any response
             print(f"\t{entry.link}")
-            self._db.insert_article(entry.link, feed_url, json.dumps(entry))
+            website_url = self._db.get_website_for_feed(feed_url)
+            self._db.insert_article(entry.link, feed_url, website_url,
+                                    json.dumps(entry))
 
 
 # add rss feeds from a json file to the database
@@ -50,8 +52,17 @@ def add_feeds(args):
 
     for feed in feeds:
         print(f"Updating {feed}")
-        db.update_feed(feed["url"], feed["name"], feed["lang"],
-                       feed["country"])
+
+        feed_url = feed["url"]
+        feed_name = feed["name"]
+        website_url = feed["website_url"]
+        website_name = feed["website_name"]
+        website_lang = feed["website_language"]
+        website_country = feed["website_country"]
+
+        db.update_website(website_url, website_name, website_lang,
+                          website_country)
+        db.update_feed(feed_url, website_url, feed_name)
 
 
 # parse command line arguments
