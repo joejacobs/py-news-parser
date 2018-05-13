@@ -5,4 +5,6 @@ websites either by parsing the RSS/Atom feeds or by crawling websites.
 
 License
 -------
-Copyright 2018 Joe Jacobs. Released under the [GNU AGPL v3.0](LICENSE).
+Copyright (c) 2018, Joe Jacobs. All rights reserved.
+
+Released under the [GNU AGPL v3.0](LICENSE).
