@@ -46,8 +46,8 @@ class FeedParser(object):
 
 # add rss feeds from a json file to the database
 def add_feeds(args):
-    with open(args.add_feeds, "r") as fp:
-        feeds = json.loads(fp.read())
+    with open(args.add_feeds, "r") as f:
+        feeds = json.loads(f.read())
 
     db = Database(args.db_filename)
 
