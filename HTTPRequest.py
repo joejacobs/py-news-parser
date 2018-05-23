@@ -12,7 +12,7 @@ class HTTPRequest(object):
         self._tries = tries
         self._user_agent = user_agent
 
-    # TODO: differentiate connection failure from gzip error
+    # returns http status code 600 for a connection failure
     def get(self, url, additional_headers=None):
         remaining_tries = self._tries
 
@@ -32,4 +32,4 @@ class HTTPRequest(object):
                     time.sleep(self._delay/1000)
 
         RequestError = namedtuple("response", ["status_code", "text"])
-        return RequestError(status_code=503, text="Connection failure")
+        return RequestError(status_code=600, text="Connection failure")
