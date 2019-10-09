@@ -1,11 +1,21 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+import datetime
 import sqlite3
 
 
 class Database(object):
     # init the db connection
     def __init__(self, db_filename):
+        # append year and month to db_filename
+        now = datetime.datetime.utcnow()
+        year = now.year
+        month = now.month
+
+        db_filename = db_filename.split(".")
+        db_filename[-1] = "{}.{}.{}".format(year, month, db_filename[-1])
+        db_filename = ".".join(db_filename)
+
         self._conn = sqlite3.connect(db_filename)
 
         if not self._check_if_tables_exist():

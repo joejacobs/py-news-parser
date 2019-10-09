@@ -4,7 +4,6 @@ from HTTPRequest import HTTPRequest
 from SQLite3 import Database
 
 import argparse
-import datetime
 import feedparser as fp
 import json
 
@@ -83,16 +82,7 @@ def argparse_init():
 
 # parse all RSS feeds and store the articles in the database
 def parse_all_feeds(args):
-    # append year and month to db_filename
-    now = datetime.datetime.utcnow()
-    year = now.year()
-    month = now.month()
-
-    db_filename = args.db_filename.split(".")
-    db_filename[-1] = "{}.{}.{}".format(year, month, db_filename[-1])
-    db_filename = ".".join(db_filename)
-
-    db = Database(db_filename)
+    db = Database(args.db_filename)
     feed_parser = FeedParser(db, args.user_agent)
 
     for url in db.get_all_feed_urls():
