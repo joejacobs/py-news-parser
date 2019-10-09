@@ -144,21 +144,34 @@ class Database(object):
         c.execute("SELECT url, name, website FROM feeds WHERE url = ?",
                   (feed_url,))
         x = c.fetchone()
-        return {"url": x[0], "name": x[1], "website": x[2]}
+
+        if x:
+            return {"url": x[0], "name": x[1], "website": x[2]}
+
+        return None
 
     def get_parsed_article(self, article_url):
         c = self._conn.cursor()
         c.execute("SELECT article, parser, content FROM parsed_articles "
                   "WHERE article = ?", (article_url,))
         x = c.fetchone()
-        return {"article": x[0], "parser": x[1], "content": x[2]}
+
+        if x:
+            return {"article": x[0], "parser": x[1], "content": x[2]}
+
+        return None
 
     def get_website_details(self, website_url):
         c = self._conn.cursor()
         c.execute("SELECT url, name, language, country FROM websites "
                   "WHERE url = ?", (website_url,))
         x = c.fetchone()
-        return {"url": x[0], "name": x[1], "language": x[2], "country": x[3]}
+
+        if x:
+            return {"url": x[0], "name": x[1], "language": x[2],
+                    "country": x[3]}
+
+        return None
 
     # get the root website for a given feed
     def get_website_for_feed(self, feed_url):
