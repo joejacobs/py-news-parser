@@ -133,11 +133,18 @@ class Database(object):
     # get all articles
     def get_articles_in_time_range(self, fst, lst):
         c = self._conn.cursor()
-        c.execute("SELECT url, time, content, feed, website FORM articles "
-                  "WHERE time >= ? AND time < ?", (fst, lst))
+        c.execute("SELECT url, time, content, feed, website FROM articles "
+                  "WHERE time >= ? AND time <= ?", (fst, lst))
         all_articles = c.fetchall()
         return {x[0]: {"time": x[1], "content": x[2], "feed": x[3], "website": x[4]}
                 for x in all_articles}
+
+    def get_feed_details(self, feed_url):
+        c = self._conn.cursor()
+        c.execute("SELECT url, name, website FROM feeds WHERE url = ?",
+                  (feed_url,))
+        x = c.fetchone()
+        return {"url": x[0], "name": x[1], "website": x[2]}
 
     def get_parsed_article(self, article_url):
         c = self._conn.cursor()
@@ -145,6 +152,13 @@ class Database(object):
                   "WHERE article = ?", (article_url,))
         x = c.fetchone()
         return {"article": x[0], "parser": x[1], "content": x[2]}
+
+    def get_website_details(self, website_url):
+        c = self._conn.cursor()
+        c.execute("SELECT url, name, language, country FROM websites "
+                  "WHERE url = ?", (website_url,))
+        x = c.fetchone()
+        return {"url": x[0], "name": x[1], "language": x[2], "country": x[3]}
 
     # get the root website for a given feed
     def get_website_for_feed(self, feed_url):
