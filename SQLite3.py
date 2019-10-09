@@ -132,19 +132,17 @@ class Database(object):
 
     # get all articles
     def get_articles_in_time_range(self, fst, lst):
-        q = """SELECT url, time, content, feed, website FORM articles
-            WHERE time >= ? AND time <= ?"""
         c = self._conn.cursor()
-        c.execute(q, fst, lst)
+        c.execute("SELECT url, time, content, feed, website FORM articles"
+                  "WHERE time >= ? AND time <= ?", (fst, lst))
         all_articles = c.fetchall()
         return {x[0]: {"time": x[1], "content": x[2], "feed": x[3], "website": x[4]}
                 for x in all_articles}
 
     def get_parsed_article(self, article_url):
-        q = """SELECT article, parser, content FROM parsed_articles
-            WHERE article = ?"""
         c = self._conn.cursor()
-        c.execute(q, article_url)
+        c.execute("SELECT article, parser, content FROM parsed_articles"
+                  "WHERE article = ?", (article_url,))
         x = c.fetchone()
         return {"article": x[0], "parser": x[1], "content": x[2]}
 
