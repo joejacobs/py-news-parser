@@ -7,15 +7,6 @@ import sqlite3
 class Database(object):
     # init the db connection
     def __init__(self, db_filename):
-        # append year and month to db_filename
-        now = datetime.datetime.utcnow()
-        year = now.year
-        month = now.month
-
-        db_filename = db_filename.split(".")
-        db_filename[-1] = "{}.{}.{}".format(year, month, db_filename[-1])
-        db_filename = ".".join(db_filename)
-
         self._conn = sqlite3.connect(db_filename)
 
         if not self._check_if_tables_exist():
@@ -117,12 +108,45 @@ class Database(object):
         all_feeds = c.fetchall()
         return [x[0] for x in all_feeds]
 
+    # get all feeds
+    def get_all_feeds(self):
+        c = self._conn.cursor()
+        c.execute("SELECT url, name, website FROM feeds")
+        all_feeds = c.fetchall()
+        return {x[0]: {"name": x[1], "website": x[2]} for x in all_feeds}
+
     # get a list of all website urls
     def get_all_website_urls(self):
         c = self._conn.cursor()
         c.execute("SELECT url FROM websites")
         all_websites = c.fetchall()
         return [x[0] for x in all_websites]
+
+    # get all websites
+    def get_all_websites(self):
+        c = self._conn.cursor()
+        c.execute("SELECT url, name, language, country FROM websites")
+        all_websites = c.fetchall()
+        return {x[0]: {"name": x[1], "language": x[2], "country": x[3]}
+                for x in all_websites}
+
+    # get all articles
+    def get_articles_in_time_range(self, fst, lst):
+        q = """SELECT url, time, content, feed, website FORM articles
+            WHERE time >= ? AND time <= ?"""
+        c = self._conn.cursor()
+        c.execute(q, fst, lst)
+        all_articles = c.fetchall()
+        return {x[0]: {"time": x[1], "content": x[2], "feed": x[3], "website": x[4]}
+                for x in all_articles}
+
+    def get_parsed_article(self, article_url):
+        q = """SELECT article, parser, content FROM parsed_articles
+            WHERE article = ?"""
+        c = self._conn.cursor()
+        c.execute(q, article_url)
+        x = c.fetchone()
+        return {"article": x[0], "parser": x[1], "content": x[2]}
 
     # get the root website for a given feed
     def get_website_for_feed(self, feed_url):
