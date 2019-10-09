@@ -5,7 +5,7 @@ websites either by parsing the RSS/Atom feeds or by crawling websites.
 
 License
 -------
-Copyright (C) 2018 Joe Jacobs
+Copyright (c) 2018-2019 Joe Jacobs
 
 This program is free software: you can redistribute it and/or modify it under
 the terms of the GNU Affero General Public License as published by the Free
