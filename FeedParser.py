@@ -4,9 +4,9 @@ from HTTPRequest import HTTPRequest
 from SQLite3 import Database
 
 import argparse
+import datetime
 import feedparser as fp
 import json
-import pprint
 
 
 class FeedParser(object):
@@ -16,9 +16,6 @@ class FeedParser(object):
 
     def parse_feed(self, feed_url):
         assert self._db is not None
-
-        # init pretty printer
-        pp = pprint.PrettyPrinter(indent=4)
 
         # get raw feed
         res = HTTPRequest(2500, 3, self._user_agent).get(feed_url)
@@ -86,7 +83,16 @@ def argparse_init():
 
 # parse all RSS feeds and store the articles in the database
 def parse_all_feeds(args):
-    db = Database(args.db_filename)
+    # append year and month to db_filename
+    now = datetime.datetime.utcnow()
+    year = now.year()
+    month = now.month()
+
+    db_filename = args.db_filename.split(".")
+    db_filename[-1] = "{}.{}.{}".format(year, month, db_filename[-1])
+    db_filename = ".".join(db_filename)
+
+    db = Database(db_filename)
     feed_parser = FeedParser(db, args.user_agent)
 
     for url in db.get_all_feed_urls():
